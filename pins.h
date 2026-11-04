@@ -2,7 +2,11 @@
 #ifndef PINS_H
 #define PINS_H
 
-#define MIDI_IN 1
+#define MIDI_RX_PIN 1
+#define MIDI_UART uart1
+#define MIDI_UART_IRQ UART1_IRQ
+#define MIDI_BAUD 31250
+#define MIDI_CHANNEL (-1)
 #define TFT_0_MOSI 3
 #define TFT_0_RESET 4
 #define TFT_0_CS 5
@@ -47,9 +51,9 @@
 #define ANALOG_SEL_0 46
 #define ANALOG_CONTROL_IN 47
 
+
 #endif
 
-//TODO: Write GPIO setup function
 int setup_pins(void){
 	// Call gpio_init for all the pins listed above
 	for (int i = 1; i < 40; i++){
@@ -58,8 +62,16 @@ int setup_pins(void){
 	for (int i = 42; i < 47; i++) gpio_init(i);
 	adc_gpio_init(47);
 
-	//TODO: MIDI_IN
+	// MIDI_IN
 	// UART in, no TX (but PCB has TX just in case)
+	uart_init(MIDI_UART, MIDI_BAUD);
+	gpio_set_function(MIDI_RX_PIN, GPIO_FUNC_UART);
+	uart_set_format(MIDI_UART, 8, 1, UART_PARITY_NONE);
+	uart_set_hw_flow(MIDI_UART, 0, 0);
+	uart_set_fifo_enabled(MIDI_UART, 0);
+	irq_set_exclusive_handler(MIDI_UART_IRQ, midi_uart_irq);
+	irq_set_enabled(MIDI_UART_IRQ, 1);
+	uart_set_irq_enables(MIDI_UART, 1, 0);
 
 	// Both TFT lines
 	// SPI over DMA, except RESET, CS & RS which are GPIO_OUT
@@ -77,9 +89,17 @@ int setup_pins(void){
 	gpio_set_function(TFT_1_SCK, GPIO_FUNC_SPI);
 	spi_init(spi1, 40 * 1000 * 1000); // 40MHz
 
-	//TODO: Motor pins
+	// Motor pins
 	// Two PWM pins, four GPIO_OUT pins
-
+	// Pins 14 & 15 are different sides of the same PWM?
+	gpio_set_dir(MOTOR_PWM_POS, GPIO_OUT);
+	gpio_set_dir(MOTOR_PWM_NEG, GPIO_OUT);
+	gpio_set_dir(MOTOR_SEL_0, GPIO_OUT);
+	gpio_set_dir(MOTOR_SEL_1, GPIO_OUT);
+	gpio_set_dir(MOTOR_SEL_2, GPIO_OUT);
+	gpio_set_dir(MOTOR_ENABLE, GPIO_OUT);
+	gpio_set_function(MOTOR_PWM_POS, GPIO_FUNC_PWM);
+	gpio_set_function(MOTOR_PWM_NEG, GPIO_FUNC_PWM);
 
 	// The DAC pins
 	// Two I2C pins, four GPIO_OUT pins
@@ -91,11 +111,6 @@ int setup_pins(void){
 	gpio_set_function(DAC_SDA, GPIO_FUNC_I2C);
 	gpio_set_function(DAC_SCL, GPIO_FUNC_I2C);
 	// Pull-ups unnecessary, external pull-ups at destination
-	//
-	// Example code for later use:
-	// uint8_t buf[] = {0x00, 0x01};
-	// int ret = i2c_write_blocking(I2C_PORT, DAC_ADDRESS, buf, sizeof(buf), false);
-		// ret is bytes written, or PICO_ERROR_GENERIC if no ACK
 
 	// Debug LEDs
 	// All simple GPIO_OUT
@@ -117,8 +132,12 @@ int setup_pins(void){
 	gpio_set_dir(PATCH_SAVE, GPIO_IN);
 	gpio_set_dir(PATCH_TOGGLE, GPIO_IN);
 
-	//TODO: RAMP_RESET & RAMP_CONTROL
-	//TODO: Are they PWM or simple GPIO?
+	// RAMP_RESET & RAMP_CONTROL
+	// Both PWM pins
+	gpio_set_dir(RAMP_RESET, GPIO_OUT);
+	gpio_set_dir(RAMP_CONTROL, GPIO_OUT);
+	gpio_set_function(RAMP_RESET, GPIO_FUNC_PWM);
+	gpio_set_function(RAMP_CONTROL, GPIO_FUNC_PWM);
 	
 	// Analog pins
 	// Five GPIO_OUT pins, one analog in
