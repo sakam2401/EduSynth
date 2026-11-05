@@ -1,11 +1,4 @@
-// Non-team written includes
-#include "hardware/uart.h"
-#include "hardware/spi.h"
-#include "pico/stdlib.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
-#include "hardware/spi.h"
-#include "hardware/dma.h"
+#pragma once
 
 // Team-written includes
 #include "pins.h"
@@ -18,9 +11,11 @@ int setup_interrupts(void);
 int setup(void){
 	if (setup_pins()) return 1;
 	if (setup_interrupts()) return 2;
-	if (patching_setup()) return 3;
+	if (setup_patching()) return 3;
+	if (setup_display()) return 4;
 	return 0;
 }
+
 
 int main(void){
 	int error = setup();

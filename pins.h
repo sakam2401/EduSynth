@@ -52,7 +52,16 @@
 #define ANALOG_CONTROL_IN 47
 
 
-#endif
+// Non-team written includes
+// Written here for convenience
+#include "hardware/uart.h"
+#include "hardware/spi.h"
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include "hardware/pwm.h"
+#include "hardware/spi.h"
+#include "hardware/dma.h"
+
 
 int setup_pins(void){
 	// Call gpio_init for all the pins listed above
@@ -143,11 +152,13 @@ int setup_pins(void){
 	// Five GPIO_OUT pins, one analog in
 	adc_init();
 	adc_select_input(7);
-	gpio_set_dir(ADC_SEL_0, GPIO_OUT);
-	gpio_set_dir(ADC_SEL_1, GPIO_OUT);
-	gpio_set_dir(ADC_SEL_2, GPIO_OUT);
-	gpio_set_dir(ADC_SEL_3, GPIO_OUT);
+	gpio_set_dir(ANALOG_SEL_0, GPIO_OUT);
+	gpio_set_dir(ANALOG_SEL_1, GPIO_OUT);
+	gpio_set_dir(ANALOG_SEL_2, GPIO_OUT);
+	gpio_set_dir(ANALOG_SEL_3, GPIO_OUT);
 	gpio_set_dir(ANALOG_ENABLE, GPIO_OUT);
 
 	return 0;
 }
+
+#endif

@@ -7,7 +7,7 @@
 
 
 int write_filter_cutoff(char value){
-	gpio_put(DAC_SEL_0, 1); //TODO: Uh-oh
+	gpio_put(DAC_SEL_0, 1);
 	gpio_put(DAC_SEL_1, 1);
 	gpio_put(DAC_SEL_2, 0);
 	gpio_put(DAC_ENABLE, 0);
