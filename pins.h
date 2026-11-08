@@ -3,8 +3,8 @@
 #define PINS_H
 
 #define MIDI_RX_PIN 1
-#define MIDI_UART uart1
-#define MIDI_UART_IRQ UART1_IRQ
+#define MIDI_UART uart0
+#define MIDI_UART_IRQ UART0_IRQ
 #define MIDI_BAUD 31250
 #define MIDI_CHANNEL (-1)
 #define TFT_0_MOSI 3
@@ -52,6 +52,12 @@
 #define ANALOG_CONTROL_IN 47
 
 
+// IRQ priorities (lower number = higher priority)
+// TODO: Consider swapping if the display has issues
+#define IRQ_PRIO_FAST    0x40
+#define IRQ_PRIO_DISPLAY 0xC0
+
+
 // Non-team written includes
 // Written here for convenience
 #include "hardware/uart.h"
@@ -61,6 +67,8 @@
 #include "hardware/pwm.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
+#include "hardware/adc.h"
+#include "hardware/i2c.h"
 
 
 int setup_pins(void){
@@ -79,8 +87,10 @@ int setup_pins(void){
 	uart_set_hw_flow(MIDI_UART, 0, 0);
 	uart_set_fifo_enabled(MIDI_UART, 0);
 	irq_set_exclusive_handler(MIDI_UART_IRQ, midi_uart_irq);
+	irq_set_priority(MIDI_UART_IRQ, IRQ_PRIO_FAST);
 	irq_set_enabled(MIDI_UART_IRQ, 1);
 	uart_set_irq_enables(MIDI_UART, 1, 0);
+
 
 	// Both TFT lines
 	// SPI over DMA, except RESET, CS & RS which are GPIO_OUT

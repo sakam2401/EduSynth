@@ -2,12 +2,14 @@
 #define DISPLAY_H
 
 #include "pins.h"
+#include "analog.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
+#include "hardware/irq.h"
 #include <stdlib.h>
 
 typedef void (*render_fn)(uint8_t *buf, int y0, int h, const int * settings);
@@ -16,13 +18,12 @@ static void draw_adsr_band(uint8_t * buf, int y0, int h, const int * settings);
 static void dma_irq_handler(void);
 static bool frame_tick(repeating_timer_t * t);
 
-extern int g_settings[NUM_SETTINGS]; // The potentiometer settings are an extern int array
+// Removed declaration of settings; settings array is declared in analog
 
 #define DISPLAY_0 (&displays[0])
 #define DISPLAY_1 (&displays[1])
 #define DISPLAY_WIDTH 240
 #define DISPLAY_HEIGHT 320
-#define BAND_BYTES
 
 // Drawing a full screen at once would push the Pi's memory limits without extremely clever tricks.
 // Draw only a portion of the screen at a time, effectively in "scanlines".
@@ -42,6 +43,7 @@ typedef struct {
 	volatile int tx_band;
 	volatile bool busy;
 	volatile bool dirty;	// if true, then a frame is only sent when a change happens
+	uint32_t seen_version; //The most recent snapshot of settings this display has seen
 } display_t;
 
 static display_t displays[2] = {
@@ -49,6 +51,10 @@ static display_t displays[2] = {
 	{ .spi = spi1, .cs = TFT_1_CS, .rs = TFT_1_RS, .reset = TFT_1_RESET, .dma_chan = -1, .render = draw_adsr_band },
 };
 
+// Request a change of both displays
+static inline void display_request_redraw(void) {
+        for (int i = 0; i < 2; i++) displays[i].dirty = true;
+}
 
 // Write a command to the given display
 static void write_cmd(display_t *d, uint8_t cmd) {
@@ -129,9 +135,12 @@ static int setup_display(void) {
 		channel_config_set_write_increment(&c, false);
 		dma_channel_configure(d->dma_chan, &c, &spi_get_hw(d->spi)->dr, NULL, 0, false);
 		dma_channel_set_irq1_enabled(d->dma_chan, true);
-		d->dirty = true;
+		d -> seen_version = settings_version;
+		d -> dirty = true;
 	}
+
 	irq_set_exclusive_handler(DMA_IRQ_1, dma_irq_handler);
+	irq_set_priority(DMA_IRQ_1, IRQ_PRIO_DISPLAY); //TODO: What priority should this display be over other interrupts?
 	irq_set_enabled(DMA_IRQ_1, true);
 
 	// Add a 30Hz timer so FPS cannot exceed 30
@@ -172,9 +181,9 @@ static void display_band_done(display_t *d) {
 static void dma_irq_handler(void) {
 	for (int i = 0; i < 2; i++) {
 		display_t *d = &displays[i];
-		uint32_t mask = 1u << d->dma_chan;
-		if (dma_hw->ints1 & mask) {
-			dma_hw->ints1 = mask;
+		uint32_t mask = 1u << d -> dma_chan;
+		if (dma_hw -> ints1 & mask) {
+			dma_hw -> ints1 = mask;
 			display_band_done(d);
 		}
 	}
@@ -182,23 +191,30 @@ static void dma_irq_handler(void) {
 
 // Called once at the start of a new frame
 static void display_start_frame(display_t *d) {
-	memcpy(d->snapshot, g_settings, sizeof(d->snapshot));
-	d->tx_band = 0;
-	d->busy = true;
-	ili9341_set_window(d, 0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
-	// Draw both buffers
-	d->render(d->band[0], 0, BAND_H, d->snapshot);
-	d->render(d->band[1], BAND_H, BAND_H, d->snapshot);
-	gpio_put(d->rs, 1);
-	gpio_put(d->cs, 0); // CS stays low until the whole frame is done
-	start_band_dma(d, 0);
+        // Read the version before the snapshot: a change landing in between
+        // just triggers one extra redraw rather than being missed
+        d->seen_version = settings_version;
+        for (int i = 0; i < NUM_SETTINGS; i++) d->snapshot[i] = g_settings[i];
+        d->tx_band = 0;
+        d->busy = true;
+        ili9341_set_window(d, 0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
+        // Draw both buffers
+        d->render(d->band[0], 0, BAND_H, d->snapshot);
+        d->render(d->band[1], BAND_H, BAND_H, d->snapshot);
+        gpio_put(d->rs, 1);
+        gpio_put(d->cs, 0); // CS stays low until the whole frame is done
+        start_band_dma(d, 0);
 }
+
 
 // When called, start a new frame
 static bool frame_tick(repeating_timer_t *t) {
+	uint32_t version = settings_version;
 	for (int i = 0; i < 2; i++) {
 		display_t *d = &displays[i];
-		if (d->dirty && !d->busy) {
+		// If settings have not changed, don't bother
+		if (version != d -> seen_version) d -> dirty = true;
+		if (d -> dirty && !d -> busy) {
 			d->dirty = false;
 			display_start_frame(d);
 		}

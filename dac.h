@@ -12,9 +12,9 @@ int write_filter_cutoff(char value){
 	gpio_put(DAC_SEL_2, 0);
 	gpio_put(DAC_ENABLE, 0);
 	//TODO: Verify MCP4706 data format
-	ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, value, sizeof(value), false);
+	int ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, &value, sizeof(value), false);
 	gpio_put(DAC_ENABLE, 1);
-	if (ret = PICO_ERROR_GENERIC) return 1;
+	if (ret < 0) return 1; // Negative value when there's an error
 	return 0;
 }
 
@@ -24,9 +24,9 @@ int write_filter_resonance(char value){
         gpio_put(DAC_SEL_2, 1);
         gpio_put(DAC_ENABLE, 0);
         //TODO: Verify MCP4706 data format
-        ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, value, sizeof(value), false);
+        int ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, &value, sizeof(value), false);
         gpio_put(DAC_ENABLE, 1);
-        if (ret = PICO_ERROR_GENERIC) return 1;
+        if (ret < 0) return 1; // Negative value when there's an error
         return 0;
 }
 
@@ -36,8 +36,8 @@ int write_vca_level(char value){
         gpio_put(DAC_SEL_2, 0);
         gpio_put(DAC_ENABLE, 0);
         //TODO: Verify MCP4706 data format
-        ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, value, sizeof(value), false);
+        int ret = i2c_write_blocking(DAC_I2C, DAC_ADDRESS, &value, sizeof(value), false);
         gpio_put(DAC_ENABLE, 1);
-        if (ret = PICO_ERROR_GENERIC) return 1;
+        if (ret < 0) return 1; // Negative value when there's an error
         return 0;
 }
